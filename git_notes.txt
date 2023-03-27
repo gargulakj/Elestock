@@ -1,0 +1,8 @@
+git init 							vytvoření repozitáře
+git add
+git commnit
+
+git remote add origin https://github.com/gargulakj/Elestock	přidá vzdálený repozitář pod názvem origin
+git remote -v							výpíše vzdálené repozitáře
+
+git push origin master						nahraje větev master na origin server

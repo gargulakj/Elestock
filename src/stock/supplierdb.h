@@ -1,40 +1,10 @@
-#ifndef CSTOCKDB_H
-#define CSTOCKDB_H
+#ifndef CSUPPLIERDB_H
+#define CSUPPLIERDB_H
 
-#include <QObject>
-#include <QMap>
-#include "sql/sqlconnector.h"
+#include "sql/dbservice.h"
 
 ///
-/// \brief Query on stock database.
-///
-enum class EStockDbQuery : char
-{
-    CreateTables,
-    AddSupplier,
-    GetSuppliers
-};
-
-///
-/// \brief Creation tables implementation.
-///
-class CCreateTablesQuery : public CDatabaseQuery
-{
-private:
-public:
-    ///
-    /// \brief Constructor
-    ///
-    CCreateTablesQuery() :
-        CDatabaseQuery( static_cast<int>( EStockDbQuery::CreateTables ) )
-    {}
-    // DoWork implementation of table creation.
-    bool DoWork( QSqlQuery& query ) override;
-
-};
-
-///
-/// \brief Adding supplier implementation.
+/// \brief Implementation of adding supplier to database.
 ///
 class CAddSupplierQuery : public CDatabaseQuery
 {
@@ -54,7 +24,7 @@ public:
 };
 
 ///
-/// \brief Getting suppliers implementation.
+/// \brief Implementation of getting suppliers from database.
 ///
 class CGetSuppliersQuery : public CDatabaseQuery
 {
@@ -76,30 +46,48 @@ public:
 };
 
 ///
-/// \brief Stock database servis.
+/// \brief Implementation of removing supplier from database.
 ///
-class CDbService : public CSqlConnector
+class CRemSupplierQuery : public CDatabaseQuery
+{
+private:
+    int m_SupplierId;
+public:
+    ///
+    /// \brief Constructor
+    ///
+    CRemSupplierQuery( int id ) :
+        CDatabaseQuery( static_cast<int>( EStockDbQuery::RemSupplier ) ),
+        m_SupplierId( id )
+    {}
+    // DoWork implementation of removing supplier.
+    bool DoWork( QSqlQuery& query ) override;
+
+};
+
+///
+/// \brief Database servis of suppliers.
+///
+class CSupplierDb : public CDbService
 {
     Q_OBJECT
 private:
     //! Overrided function of result processing.
     void QueryProcessed( bool result, CDatabaseQuery* query ) override;
+
 public:
-    // Construtor of stock database service
-    explicit CDbService( CSqlConnectorSetting stt, QObject *parent = nullptr );
-    // Destructor
-    ~CDbService();
+    // Constructor
+    CSupplierDb( CSqlConnectorSetting stt, QObject *parent = nullptr );
     // Adds query for supplier adding.
     void AddSupplier( QString supplierName );
     // Adds query for supplier getting.
     void GetSupplier();
-
+    // Adds query for supplier removing.
+    void RemSupplier( int supplierId );
 
 signals:
     // Is emitted when list of suppliers was readed.
     void suppliersReady( QMap<int,QString> supplierList );
-
-
 };
 
-#endif // CSTOCKDB_H
+#endif // CSUPPLIERDB_H

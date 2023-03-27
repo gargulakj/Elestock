@@ -1,5 +1,8 @@
 #include <QDir>
 #include <QActionGroup>
+#include <QMessageBox>
+#include <QPixmap>
+
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
@@ -10,12 +13,17 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
       ui(new Ui::MainWindow),
+      m_LbDbStatus( nullptr ),
+      m_LbDbStatusIco_G( nullptr ),
+      m_LbDbStatusIco_R( nullptr ),
       m_Translation( QApplication::applicationDirPath() + "/languages/" ),
-      m_DbService( nullptr ),
+      m_DbItems( nullptr ),
+      m_DbSupplier( nullptr ),
       m_StockList( nullptr )
 {
     ui->setupUi(this);
     createLanguageMenu();
+    createStatusBar();
 
 
     CSqlConnectorSetting stt;
@@ -24,11 +32,16 @@ MainWindow::MainWindow(QWidget *parent)
     stt.SetUserName("test");
     stt.SetPassword("test");
 
-    m_DbService = new CDbService( stt );
-    connect( m_DbService, SIGNAL(connectionStateChange(bool)), this, SLOT(changeDbState(bool)));
-    m_DbService->Init();
+    m_DbItems = new CItemDb( stt );
+    m_DbSupplier = new CSupplierDb( stt );
+    connect( m_DbItems, SIGNAL(connectionStateChange(bool)), this, SLOT(changeDbState(bool)));
+    connect( m_DbItems, SIGNAL(queryFailed(QString)),this,SLOT(showErrMessage(QString)));
+    connect( m_DbSupplier, SIGNAL(queryFailed(QString)),this,SLOT(showErrMessage(QString)));
+    m_DbItems->Init();
+    m_DbSupplier->Init();
 
-    m_StockList = new CStockList( m_DbService, ui->tabStockList );
+    m_StockList = new CStockList( m_DbItems, m_DbSupplier, ui->tabStockList );
+
 
 }
 
@@ -37,13 +50,50 @@ MainWindow::MainWindow(QWidget *parent)
 ///
 MainWindow::~MainWindow()
 {
-    if( m_DbService != nullptr )
+    if( m_DbItems != nullptr )
     {
-        delete m_DbService;
+        delete m_DbItems;
+    }
+
+    if( m_DbSupplier != nullptr )
+    {
+        delete m_DbSupplier;
     }
     delete ui;
 }
 
+void MainWindow::createStatusBar()
+{
+    // Horinzontal layout for label and image
+    QWidget* dbStatusWidget = new QWidget;
+    QHBoxLayout* dbStatusLayout = new QHBoxLayout( dbStatusWidget );
+    dbStatusLayout->setContentsMargins(0,0,0,0);
+
+    // Green icon for indication db state
+    QPixmap icon;
+    if( icon.load("://images/iconLedGreen") )
+    {
+        m_LbDbStatusIco_G = new QLabel;
+        m_LbDbStatusIco_G->setPixmap( icon );
+        m_LbDbStatusIco_G->setVisible( false );
+        dbStatusLayout->addWidget( m_LbDbStatusIco_G );
+    }
+
+    // Red icon for indication db state
+    if( icon.load("://images/iconLedRed") )
+    {
+        m_LbDbStatusIco_R = new QLabel;
+        m_LbDbStatusIco_R->setPixmap( icon );
+        m_LbDbStatusIco_R->setVisible( false );
+        dbStatusLayout->addWidget( m_LbDbStatusIco_R );
+    }
+
+    // Label for indication db state
+    m_LbDbStatus = new QLabel;
+    dbStatusLayout->addWidget( m_LbDbStatus );
+    ui->statusbar->addPermanentWidget( dbStatusWidget );
+
+}
 ///
 /// \brief Creates the language menu dynamically from the content of language directory
 ///
@@ -83,12 +133,12 @@ void MainWindow::changeEvent( QEvent* event )
 {
     if( event != nullptr ) {
         switch(event->type()) {
-            // this event is send if a translator is loaded
+        // this event is send if a translator is loaded
         case QEvent::LanguageChange:
             ui->retranslateUi( this );
         break;
 
-            // this event is send, if the system, language was changed
+        // this event is send, if the system, language was changed
         case QEvent::LocaleChange:
         {
             m_Translation.translate( QLocale::system().language() );
@@ -113,10 +163,24 @@ void MainWindow::changeLanguage( QAction* action )
 
 ///
 /// \brief Slot changes the label of database state.
-/// \param state
+/// \param state Connected/Disconnected
 ///
 void MainWindow::changeDbState( bool state )
 {
-    ui->statusbar->showMessage( tr("Database: %1").arg( state ? tr("Connected") : tr("Disconnected") ) );
+    m_LbDbStatus->setText( tr("Database %1").arg( state ? tr("Connected") : tr("Disconnected") ) );
+    m_LbDbStatusIco_G->setVisible( state );
+    m_LbDbStatusIco_R->setVisible( !state );
 }
 
+///
+/// \brief Slow shows message box.
+/// \param errText Message.
+///
+void MainWindow::showErrMessage( QString errText )
+{
+    QMessageBox msgBox;
+    msgBox.setWindowTitle( tr("Error") );
+    msgBox.setText( errText );
+    msgBox.setIcon( QMessageBox::Icon::Warning );
+    msgBox.exec();
+}
